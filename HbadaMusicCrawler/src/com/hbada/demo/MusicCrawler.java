@@ -37,7 +37,7 @@ public class MusicCrawler {
 	
 	public static void main(String[] args) {
 		String p = "100"; 		//下载的页数，每页20，不太可能超过2000首吧
-		String w = "痒";       //你搜索的歌手或者歌曲名字
+		String w = "薛之谦";       //你搜索的歌手或者歌曲名字
 		String f = "e:/music/"+w+"/"; //下载到此位置
 		
 		downTaskList(f,w,Integer.parseInt(p));
@@ -207,6 +207,9 @@ public class MusicCrawler {
 				}else{
 					System.out.println("第"+(count++)+"首下载失败");
 				}
+			}
+			if(url1.size()<1){
+				break;
 			}
 		}
 		System.out.print("QQ音乐下载完成.");
