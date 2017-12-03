@@ -8,7 +8,9 @@ import java.io.InputStreamReader;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import com.alibaba.fastjson.JSONArray;
 import com.alibaba.fastjson.JSONObject;
@@ -31,13 +33,11 @@ import com.alibaba.fastjson.JSONObject;
  */
 public class MusicCrawler {
 
-	private static List <Object> song_name = new ArrayList<Object>(); 
-	private static List <Object> people_name =new ArrayList<Object>();
 	private static int count = 1;
 	
 	public static void main(String[] args) {
 		String p = "100"; 		//下载的页数，每页20，不太可能超过2000首吧
-		String w = "薛之谦";       //你搜索的歌手或者歌曲名字
+		String w = "张国荣";       //你搜索的歌手或者歌曲名字
 		String f = "e:/music/"+w+"/"; //下载到此位置
 		
 		downTaskList(f,w,Integer.parseInt(p));
@@ -49,9 +49,9 @@ public class MusicCrawler {
 	 * @return
 	 */
 	@SuppressWarnings("static-access")
-	public static List<String> url1(String word,int p) {
+	public static Map<String,List<String>> url1(String word,int p) {
 		
-		String url1 = "https://c.y.qq.com/soso/fcgi-bin/client_search_cp?&lossless=0&flag_qc=0&p="+p+"&n=20&w="+word;
+		String url1 = "https://c.y.qq.com/soso/fcgi-bin/client_search_cp?&lossless=0&flag_qc=0&p="+p+"&n=20&w="+word.replaceAll("\\s*", "");
 		try {
 			//1.请求网页
 			URL pageUrl = new URL(url1);
@@ -74,20 +74,19 @@ public class MusicCrawler {
 			JSONObject jldata_song = (JSONObject) jldata.get("song");
 			JSONArray jldata_song_list = (JSONArray) jldata_song.get("list");
 		
-			List<Object> mids = null,songmids = null,songnames = null,singers = null;
+			List<Object> mids = null,songmids = null;
 			mids = new ArrayList<Object>();
 			songmids = new ArrayList<Object>();
-			songnames = new ArrayList<Object>();
-			singers = new ArrayList<Object>();
+			List<String> songnames = null,singers = null;
+			songnames = new ArrayList<String>();
+			singers = new ArrayList<String>();
 			
 			for(Object j : jldata_song_list){
 				mids.add(((JSONObject) j).get("media_mid"));
 				songmids.add(((JSONObject) j).get("songmid"));
-				songnames.add(((JSONObject) j).get("songname"));
-				singers.add(((JSONObject)((JSONArray)((JSONObject) j).get("singer")).get(0)).get("name"));
+				songnames.add((String)((JSONObject) j).get("songname"));
+				singers.add((String)((JSONObject)((JSONArray)((JSONObject) j).get("singer")).get(0)).get("name"));
 			}
-			song_name = songnames;
-			people_name = singers;
 			
 			return url2(mids,songmids,songnames,singers);
 		} catch (Exception e) {
@@ -105,7 +104,7 @@ public class MusicCrawler {
 	 * @return
 	 */
 	@SuppressWarnings("static-access")
-	public static List<String> url2(List<Object> mids,List<Object> songmids,List<Object> songnames,List<Object> singers ){
+	public static Map<String, List<String>> url2(List<Object> mids,List<Object> songmids,List<String> songnames,List<String> singers ){
 		
 		List<String> vkeys = new ArrayList<String>();
 		
@@ -140,7 +139,7 @@ public class MusicCrawler {
 				e.printStackTrace();
 			}
 		}
-		return url3(mids,vkeys);
+		return url3(mids,vkeys,songnames,singers);
 	}
 	
 	/**
@@ -149,13 +148,17 @@ public class MusicCrawler {
 	 * @param vkeys
 	 * @return
 	 */
-	public static List<String> url3(List<Object> mids,List<String> vkeys){
+	public static Map<String,List<String>> url3(List<Object> mids,List<String> vkeys,List<String> songnames,List<String> singers){
+		Map<String,List<String>> songMap = new HashMap<String,List<String>>();
 		List<String> url3s = new ArrayList<String>();
 		for(int i=0;i<mids.size();i++){
 			String url3 = "http://dl.stream.qqmusic.qq.com/C400"+mids.get(i)+".m4a?vkey="+vkeys.get(i)+"&guid=6612300644&uin=0&fromtag=66";
 			url3s.add(url3);
 		}
-		return url3s;
+		songMap.put("song_names", songnames);
+		songMap.put("song_singers", singers);
+		songMap.put("song_urls", url3s);
+		return songMap;
 	}
 	
 
@@ -171,7 +174,7 @@ public class MusicCrawler {
         try {  
         	URL url = new URL(u);  
             DataInputStream dataInputStream = new DataInputStream(url.openStream());  
-            String imageName = n+".m4a";
+            String imageName = n +".m4a";
             File file=new File(f); 
             if(!file.isDirectory()){  
                 file.mkdirs();  
@@ -200,15 +203,18 @@ public class MusicCrawler {
 	public static void downTaskList(String f,String w,int p){
 		long d1 = new Date().getTime();
 		for(int j=1;j<p;j++){
-			List<String> url1 = url1(w,j);
-			for(int i=0;i<url1.size();i++){
-				if(downMusic(f,song_name.get(i)+"-"+people_name.get(i),(String)url1.get(i))){
+			Map<String,List<String>> songMap = url1(w,j);
+			List<String> song_names = (List<String>) songMap.get("song_names");
+			List<String> song_singers = (List<String>) songMap.get("song_singers");
+			List<String> urls = (List<String>) songMap.get("song_urls");
+			for(int i=0;i<urls.size();i++){
+				if(downMusic(f,song_names.get(i)+"-"+song_singers.get(i),urls.get(i))){
 					System.out.println("已下载"+(count++)+"首");
 				}else{
 					System.out.println("第"+(count++)+"首下载失败");
 				}
 			}
-			if(url1.size()<1){
+			if(urls.size()<1){
 				break;
 			}
 		}
@@ -216,5 +222,8 @@ public class MusicCrawler {
 		long d2 = new Date().getTime();
 		System.out.println("用时："+(d2-d1)/1000+"秒");
 	}
+	
+	
+		
 
 }
